@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+[ "$TRACE" == "true" ] && set -x
+set -e
+set -o pipefail
+
+# functions from the git resource for configuring git and ssh
+source /opt/resource/git/common.sh
+
+DEST_DIR="$1"
+
+GIT_DEST_DIR="$(mktemp -d -t git-resource-destination.XXXXXX)"
+
+# pull the git repo from the config passed in stdin
+# also handles emitting the correct output for concourse
+/opt/resource/git/in "$GIT_DEST_DIR"
+
+# the config passed via stdin is saved to /tmp/git-resource-request.*
+# by the /opt/resource/git/in script. load it back into PAYLOAD 
+# to parse it further
+PAYLOAD=$(echo /tmp/git-resource-request.*)
+
+# use git-resource's helper functions to configure git credentials
+load_pubkey $PAYLOAD
+configure_git_ssl_verification $PAYLOAD
+configure_credentials $PAYLOAD
+
+# parse additional config
+# PROJECT_PATH=$(jq -r '.source["project-path"] // ""' < $PAYLOAD)
+
+# go into the cloned sorce code
+cd "$GIT_DEST_DIR/$PROJECT_PATH"
+
+# look for go.mod files
+PATHS=`find . -name go.mod`
+for PATH in $PATHS; do
+  pushd $(/usr/bin/dirname $PATH)
+  /usr/local/go/bin/go mod download
+  popd
+done
+
+# only export the node_modules folder
+# the fetched version is already emitted by the git in script called at the beginning
+/bin/mv $GOPATH "$DEST_DIR/"
