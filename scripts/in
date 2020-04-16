@@ -34,9 +34,9 @@ cd "$GIT_DEST_DIR/$PROJECT_PATH"
 # look for go.mod files
 PATHS=`find . -name go.mod`
 for PATH in $PATHS; do
-  pushd $(/usr/bin/dirname $PATH)
-  /usr/local/go/bin/go mod download
-  popd
+  pushd $(/usr/bin/dirname $PATH) >/dev/null
+  /usr/local/go/bin/go mod download  >/dev/null
+  popd  >/dev/null
 done
 
 # only export the node_modules folder
